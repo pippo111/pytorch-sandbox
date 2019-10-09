@@ -1,4 +1,3 @@
-
 import numpy as np
 from torch.utils.data import DataLoader
 
@@ -18,7 +17,7 @@ valid_loader = get_loader(dataset_dir, 'valid', shuffle = False)
 
 # For each model setup perform training
 for model in cfg.models:
-    my_model = MyModel()
+    my_model = MyModel(struct = cfg.setup['struct'])
 
     history = my_model.train(
         arch = model['arch'],

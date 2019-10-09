@@ -11,7 +11,8 @@ from utils.common import calc_weights
 from utils.metrics import calc_confusion_matrix, calc_fn_rate, calc_fp_rate
 
 class MyModel():
-    def __init__(self):
+    def __init__(self, struct):
+        self.struct = struct
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         print(f'Device: {self.device}')
         print(f'---------------------------------------------------')
@@ -32,20 +33,36 @@ class MyModel():
         loss_fn = loss.get(loss_name)
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
+        checkpoint = "{}_{}_{}_{}_bs-{}_f-{}".format(
+                    self.struct,
+                    arch,
+                    'Adam',
+                    loss_name,
+                    16,
+                    n_filters
+                )
+
+        print(checkpoint)
+
         history = {
             'losses': [],
             'val_losses': [],
+            'dices': [],
+            'val_dices': [],
             'fp_rate': [],
-            'fp_rate': [],
+            'fn_rate': [],
             'f_total': []
         }
         
         for epoch in range(epochs):
             print(f"Epoch {epoch + 1} / {epochs}")
             start = time.time()
+            best_f_total = np.Inf
 
             losses = []
             val_losses = []
+            dices = []
+            val_dices = []
             
             for X_batch, y_batch in train_loader:
                 X_batch = X_batch.to(self.device)
@@ -57,11 +74,13 @@ class MyModel():
                 y_hat = model(X_batch)
 
                 loss_val = loss_fn(y_hat, y_batch)
+                dice_val = loss.get('dice')(y_hat, y_batch)
 
                 loss_val.backward()
                 optimizer.step()
 
                 losses.append(loss_val.item())
+                dices.append(dice_val.item())
                 
             with torch.no_grad():
                 confusions = dict(
@@ -81,6 +100,7 @@ class MyModel():
                     y_hat = model(X_batch)
 
                     loss_val = loss_fn(y_hat, y_batch)
+                    dice_val = loss.get('dice')(y_hat, y_batch)
 
                     # Calc confusion matrix on the fly
                     np_y_batch = y_batch.cpu().numpy()
@@ -95,15 +115,20 @@ class MyModel():
                     confusions['f_total'] += conf['f_total']
                     
                     val_losses.append(loss_val.item())
+                    val_dices.append(dice_val.item())
 
                 fpr_perc = calc_fp_rate(confusions['fp_total'], confusions['tn_total'])
                 fnr_perc = calc_fn_rate(confusions['fn_total'], confusions['tp_total'])
 
             avg_loss = np.mean(losses)
             avg_val_loss = np.mean(val_losses)
+            avg_dice = np.mean(dices)
+            avg_val_dice = np.mean(val_dices)
 
             history['losses'].append(avg_loss)
             history['val_losses'].append(avg_val_loss)
+            history['dices'].append(avg_dice)
+            history['val_dices'].append(avg_val_dice)
             history['fp_rate'].append(fpr_perc)
             history['fn_rate'].append(fnr_perc)
             history['f_total'].append(confusions['f_total'])
@@ -113,8 +138,14 @@ class MyModel():
             print(f'Train. loss:', avg_loss)
             print(f'Valid. loss:', avg_val_loss)
             print(f'---')
+            print(f'Train. dice:', avg_dice)
+            print(f'Valid. dice:', avg_val_dice)
+            print(f'---')
             print(f'False positive rate: {fpr_perc}')
             print(f'False negative rate: {fnr_perc}')
             print(f'---------------------------------------------------')
+
+            if confusions['f_total'] < np.Inf:
+                torch.save(model.state_dict(), f'output/models/{checkpoint}.pt')
 
         return history
