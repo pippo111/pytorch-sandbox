@@ -53,6 +53,8 @@ class MyModel():
             'val_dices': [],
             'fp_rate': [],
             'fn_rate': [],
+            'fp_total': [],
+            'fn_total': [],
             'f_total': []
         }
 
@@ -136,6 +138,8 @@ class MyModel():
             history['val_dices'].append(avg_val_dice)
             history['fp_rate'].append(fpr_perc)
             history['fn_rate'].append(fnr_perc)
+            history['fn_total'].append(confusions['fn_total'])
+            history['fp_total'].append(confusions['fp_total'])
             history['f_total'].append(confusions['f_total'])
             
             print(f'Time per epoch: {(time.time() - start):.3f} seconds')
@@ -149,6 +153,8 @@ class MyModel():
             print(f'False positive rate: {fpr_perc}')
             print(f'False negative rate: {fnr_perc}')
             print(f'---')
+            print(f"FP: {confusions['fp_total']}")
+            print(f"FN: {confusions['fn_total']}")
             print(f"FP+FN:, {confusions['f_total']}")
             print(f'---')
 

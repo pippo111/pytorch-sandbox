@@ -24,8 +24,8 @@ def calc_confusion_matrix(mask, pred):
 
     f_total = fp_total + fn_total
 
-    fpr_perc = '{:.0%}'.format(fpr_perc)
-    fnr_perc = '{:.0%}'.format(fnr_perc)
+    fpr_perc = '{:.2%}'.format(fpr_perc)
+    fnr_perc = '{:.2%}'.format(fnr_perc)
 
     conf = dict(
         fpr_perc = fpr_perc,
@@ -41,12 +41,14 @@ def calc_confusion_matrix(mask, pred):
 
 def calc_fp_rate(fp_total, tn_total):
     fpr_perc = fp_total / (fp_total + tn_total) if tn_total != 0 or fp_total != 0 else 0
-    fpr_perc = '{:.0%}'.format(fpr_perc)
+    print(fpr_perc)
+    fpr_perc = '{:.2%}'.format(fpr_perc)
 
     return fpr_perc
 
 def calc_fn_rate(fn_total, tp_total):
     fnr_perc = fn_total / (fn_total + tp_total) if tp_total != 0 or fn_total != 0 else 0
-    fnr_perc = '{:.0%}'.format(fnr_perc)
+    print(fnr_perc)
+    fnr_perc = '{:.2%}'.format(fnr_perc)
 
     return fnr_perc
