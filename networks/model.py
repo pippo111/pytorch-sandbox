@@ -14,6 +14,7 @@ class MyModel():
     def __init__(self, struct):
         self.struct = struct
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
         print(f'Device: {self.device}')
         print(f'---------------------------------------------------')
 
@@ -27,12 +28,14 @@ class MyModel():
         loss_name,
         n_channels=1,
         n_classes=1,
-        learning_rate=1e-3
+        learning_rate=1e-3,
+        lr_patience=10,
+        tries=20
     ):
         model = network.get(arch)(n_channels, n_filters, n_classes).to(self.device)
         loss_fn = loss.get(loss_name)
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=20, verbose=True)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=lr_patience, verbose=True)
 
         checkpoint = "{}_{}_{}_{}_bs-{}_f-{}".format(
                     self.struct,
@@ -43,8 +46,6 @@ class MyModel():
                     n_filters
                 )
 
-        print(checkpoint)
-
         history = {
             'losses': [],
             'val_losses': [],
@@ -54,6 +55,9 @@ class MyModel():
             'fn_rate': [],
             'f_total': []
         }
+
+        best_score = np.Inf
+        trial = 0
         
         for epoch in range(epochs):
             print(f"Epoch {epoch + 1} / {epochs}")
@@ -144,9 +148,29 @@ class MyModel():
             print(f'---')
             print(f'False positive rate: {fpr_perc}')
             print(f'False negative rate: {fnr_perc}')
-            print(f'---------------------------------------------------')
+            print(f'---')
+            print(f"FP+FN:, {confusions['f_total']}")
+            print(f'---')
 
-            if confusions['f_total'] < np.Inf:
+            if avg_val_loss < best_score:
+                print(f"val_loss improved, {best_score} -> {avg_val_loss}")
+                print(f"val_loss improved by {best_score - avg_val_loss}")
+                print(f'Saving model: output/models/{checkpoint}.pt')
                 torch.save(model.state_dict(), f'output/models/{checkpoint}.pt')
+
+                best_score = avg_val_loss
+                trial = 0
+                
+            else:
+                trial += 1
+
+                if trial > tries:
+                    print(f'Early stopping')
+                    break
+
+                print(f"val_loss did not improved ({avg_val_loss}), {trial} / {tries}")
+
+            scheduler.step(avg_val_loss)
+            print(f'---------------------------------------------------')
 
         return history
