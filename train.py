@@ -17,14 +17,16 @@ valid_loader = get_loader(dataset_dir, 'valid', shuffle = False)
 
 # For each model setup perform training
 for model in cfg.models:
-    my_model = MyModel(struct = cfg.setup['struct'])
+    my_model = MyModel(
+        arch = model['arch'],
+        struct = cfg.setup['struct'],
+        n_filters = model['filters']
+    )
 
     history = my_model.train(
-        arch = model['arch'],
         epochs = cfg.setup['epochs'],
         train_loader = train_loader,
         valid_loader = valid_loader,
-        n_filters = model['filters'],
         loss_name = model['loss_fn'],
         learning_rate = model['lr']
     )

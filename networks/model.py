@@ -11,41 +11,47 @@ from utils.common import calc_weights
 from utils.metrics import calc_confusion_matrix, calc_fn_rate, calc_fp_rate
 
 class MyModel():
-    def __init__(self, struct):
+    def __init__(
+        self,
+        arch,
+        struct,
+        n_filters,
+        n_channels=1,
+        n_classes=1,
+    ):
         self.struct = struct
+        self.arch = arch
+        self.n_filters = n_filters
+
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.model = network.get(arch)(n_channels, n_filters, n_classes).to(self.device)
 
         print(f'Device: {self.device}')
         print(f'---------------------------------------------------')
 
     def train(
         self,
-        arch,
         epochs,
         train_loader,
         valid_loader,
-        n_filters,
         loss_name,
-        n_channels=1,
-        n_classes=1,
         learning_rate=1e-3,
         lr_patience=10,
         tries=20
     ):
-        model = network.get(arch)(n_channels, n_filters, n_classes).to(self.device)
-        loss_fn = loss.get(loss_name)
-        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=lr_patience, verbose=True)
-
-        checkpoint = "{}_{}_{}_{}_bs-{}_f-{}".format(
+        self.checkpoint = "{}_{}_{}_{}_bs-{}_f-{}".format(
                     self.struct,
-                    arch,
+                    self.arch,
                     'Adam',
                     loss_name,
                     16,
-                    n_filters
+                    self.n_filters
                 )
-
+        
+        loss_fn = loss.get(loss_name)
+        optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=lr_patience, verbose=True)
+        
         history = {
             'losses': [],
             'val_losses': [],
@@ -75,10 +81,10 @@ class MyModel():
                 X_batch = X_batch.to(self.device)
                 y_batch = y_batch.to(self.device)
 
-                model.train()
+                self.model.train()
                 optimizer.zero_grad()
 
-                y_hat = model(X_batch)
+                y_hat = self.model(X_batch)
 
                 loss_val = loss_fn(y_hat, y_batch)
                 dice_val = loss.get('dice')(y_hat, y_batch)
@@ -102,9 +108,9 @@ class MyModel():
                     X_batch = X_batch.to(self.device)
                     y_batch = y_batch.to(self.device)
                     
-                    model.eval()
+                    self.model.eval()
                     
-                    y_hat = model(X_batch)
+                    y_hat = self.model(X_batch)
 
                     loss_val = loss_fn(y_hat, y_batch)
                     dice_val = loss.get('dice')(y_hat, y_batch)
@@ -161,8 +167,8 @@ class MyModel():
             if avg_val_loss < best_score:
                 print(f"val_loss improved, {best_score} -> {avg_val_loss}")
                 print(f"val_loss improved by {best_score - avg_val_loss}")
-                print(f'Saving model: output/models/{checkpoint}.pt')
-                torch.save(model.state_dict(), f'output/models/{checkpoint}.pt')
+                print(f'Saving model: output/models/{self.checkpoint}.pt')
+                torch.save(self.model.state_dict(), f'output/models/{self.checkpoint}.pt')
 
                 best_score = avg_val_loss
                 trial = 0
