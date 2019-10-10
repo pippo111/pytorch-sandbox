@@ -60,7 +60,7 @@ class MyModel():
         print('Mask shape:', scan_mask.shape)
 
         combined_scan = scan_mask * 2 + scan_preds
-        test_scan = cubify_scan(combined_scan, 256, 192, 256, 256)
+        test_scan = cubify_scan(combined_scan, 256)
 
         render_scan(test_scan, 256)
 

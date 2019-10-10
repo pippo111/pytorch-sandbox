@@ -22,10 +22,10 @@ def img_to_array(img: np.ndarray) -> np.ndarray:
 
 """ Converts scan image to cuboid by padding with zeros
 """
-def cubify_scan(data: np.ndarray, w: int, h: int, d: int, cube_dim: int) -> np.ndarray:
-    pad_w = (cube_dim - w) // 2
-    pad_h = (cube_dim - h) // 2
-    pad_d = (cube_dim - d) // 2
+def cubify_scan(data: np.ndarray, cube_dim: int) -> np.ndarray:
+    pad_w = (cube_dim - data.shape[0]) // 2
+    pad_h = (cube_dim - data.shape[1]) // 2
+    pad_d = (cube_dim - data.shape[2]) // 2
 
     data = np.pad(
         data,
