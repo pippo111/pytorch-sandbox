@@ -32,6 +32,7 @@ class MyModel():
         model = network.get(arch)(n_channels, n_filters, n_classes).to(self.device)
         loss_fn = loss.get(loss_name)
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=20, verbose=True)
 
         checkpoint = "{}_{}_{}_{}_bs-{}_f-{}".format(
                     self.struct,
