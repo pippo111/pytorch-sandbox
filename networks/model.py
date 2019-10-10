@@ -6,9 +6,10 @@ from torch import optim
 
 from networks import network
 from networks import loss
-from utils.image import calc_dist_map
+from utils.image import calc_dist_map, cubify_scan
 from utils.common import calc_weights
 from utils.metrics import calc_confusion_matrix, calc_fn_rate, calc_fp_rate
+from utils.vtk import render_scan
 
 class MyModel():
     def __init__(
@@ -28,6 +29,40 @@ class MyModel():
 
         print(f'Device: {self.device}')
         print(f'---------------------------------------------------')
+
+    def load(self, filename):
+        self.model.load_state_dict(torch.load(f'output/models/{filename}'))
+        self.model.eval()
+
+    def visualize(self, test_loader):
+        scan_preds = list()
+        scan_mask = list()
+
+        for X_batch, y_batch in test_loader:
+            X_batch = X_batch.to(self.device)
+            y_batch = y_batch.to(self.device)
+
+            with torch.no_grad():
+                self.model.eval()
+
+                preds = self.model(X_batch)
+                preds = preds.cpu().numpy()
+                preds = (preds > 0.5).astype(np.uint8)
+                scan_preds.append(preds.squeeze())
+                
+                mask = y_batch.cpu().numpy().squeeze().astype(np.uint8)
+                scan_mask.append(mask)
+                
+        scan_preds = np.concatenate([img for img in scan_preds])
+        scan_mask = np.concatenate([img for img in scan_mask])
+
+        print('Preds shape:', scan_preds.shape)
+        print('Mask shape:', scan_mask.shape)
+
+        combined_scan = scan_mask * 2 + scan_preds
+        test_scan = cubify_scan(combined_scan, 256, 192, 256, 256)
+
+        render_scan(test_scan, 256)
 
     def train(
         self,
