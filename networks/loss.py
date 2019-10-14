@@ -4,6 +4,7 @@ from networks.losses.dice import dice_coef_loss
 from networks.losses.ce import weighted_binary_cross_entropy_loss
 from networks.losses.surface import surface_loss
 from networks.losses.boundary import boundary_dice_loss
+from networks.losses.boundary import boundary_bce_loss
 from networks.losses.boundary import boundary_wbce_loss
 
 def get(name):
@@ -13,6 +14,7 @@ def get(name):
         dice = dice_coef_loss,
         surface = surface_loss,
         boundary_dice = boundary_dice_loss,
+        boundary_bce = boundary_bce_loss,
         boundary_wbce = boundary_wbce_loss
     )
 
