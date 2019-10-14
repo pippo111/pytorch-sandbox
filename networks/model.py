@@ -82,7 +82,7 @@ class MyModel():
 
     def train(
         self,
-        epochs,
+        epochs, 
         train_loader,
         valid_loader,
         loss_name,
@@ -91,18 +91,20 @@ class MyModel():
         tries=20
     ):
         self.checkpoint = "{}_{}_{}_{}_bs-{}_f-{}".format(
-                    self.struct,
-                    self.arch,
-                    'Adam',
-                    loss_name,
-                    self.batch_size,
-                    self.n_filters
-                )
+            self.struct,
+            self.arch,
+            'Adam',
+            loss_name,
+            self.batch_size,
+            self.n_filters
+        )
 
         loss_fn = loss.get(loss_name)
         optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=lr_patience, verbose=True)
         early_stop = EarlyStop(self.model, self.checkpoint, tries)
+        alpha_step = 1 / epochs
+        alpha_init = 1.0
         
         for epoch in range(epochs):
             print(f"Epoch {epoch + 1} / {epochs}")
@@ -123,7 +125,12 @@ class MyModel():
 
                 y_hat = self.model(X_batch)
 
-                loss_val = loss_fn(y_hat, y_batch)
+                if loss_name == 'boundary':
+                    alpha = alpha_init - epoch * alpha_step
+                    loss_val = loss_fn(y_hat, y_batch, alpha)
+                else:
+                    loss_val = loss_fn(y_hat, y_batch)
+
                 dice_val = loss.get('dice')(y_hat, y_batch)
 
                 loss_val.backward()
@@ -149,7 +156,12 @@ class MyModel():
                     
                     y_hat = self.model(X_batch)
 
-                    loss_val = loss_fn(y_hat, y_batch)
+                    if loss_name == 'boundary':
+                        alpha = alpha_init - epoch * alpha_step
+                        loss_val = loss_fn(y_hat, y_batch, alpha)
+                    else:
+                        loss_val = loss_fn(y_hat, y_batch)
+
                     dice_val = loss.get('dice')(y_hat, y_batch)
 
                     # Calc confusion matrix on the fly
