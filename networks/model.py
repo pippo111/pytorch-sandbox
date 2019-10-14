@@ -11,21 +11,67 @@ from utils.common import calc_weights
 from utils.metrics import calc_confusion_matrix, calc_fn_rate, calc_fp_rate
 from utils.vtk import render_scan
 
+class EarlyStop():
+    def __init__(self, model, checkpoint, tries=20):
+        self.model = model
+        self.checkpoint = checkpoint
+        self.best_score = np.Inf
+        self.trial = 0
+        self.tries = tries
+
+    def on_epoch_end(self, score):
+        if score < self.best_score:
+            print(f"val_loss improved, {self.best_score} -> {score}")
+            print(f"val_loss improved by {self.best_score - score}")
+            print(f'Saving model: output/models/{self.checkpoint}.pt')
+            torch.save(self.model.state_dict(), f'output/models/{self.checkpoint}.pt')
+
+            self.best_score = score
+            trial = 0
+            
+        else:
+            trial += 1
+
+            if trial > self.tries:
+                print(f'Early stopping')
+                
+                return True
+
+            print(f"val_loss did not improved ({score}), {trial} / {self.tries}")
+
+        return False
+
+
 class MyModel():
     def __init__(
         self,
         arch,
         struct,
         n_filters,
+        batch_size=16,
         n_channels=1,
         n_classes=1,
     ):
         self.struct = struct
         self.arch = arch
         self.n_filters = n_filters
+        self.batch_size = batch_size
 
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model = network.get(arch)(n_channels, n_filters, n_classes).to(self.device)
+
+        self.history = {
+            'losses': [],
+            'val_losses': [],
+            'dices': [],
+            'val_dices': [],
+            'fp_rate': [],
+            'fn_rate': [],
+            'fp_total': [],
+            'fn_total': [],
+            'f_total': [],
+            'time_per_epoch': []
+        }
 
         print(f'Device: {self.device}')
         print(f'---------------------------------------------------')
@@ -79,28 +125,14 @@ class MyModel():
                     self.arch,
                     'Adam',
                     loss_name,
-                    16,
+                    self.batch_size,
                     self.n_filters
                 )
-        
+
         loss_fn = loss.get(loss_name)
         optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=lr_patience, verbose=True)
-        
-        history = {
-            'losses': [],
-            'val_losses': [],
-            'dices': [],
-            'val_dices': [],
-            'fp_rate': [],
-            'fn_rate': [],
-            'fp_total': [],
-            'fn_total': [],
-            'f_total': []
-        }
-
-        best_score = np.Inf
-        trial = 0
+        early_stop = EarlyStop(self.model, self.checkpoint, tries)
         
         for epoch in range(epochs):
             print(f"Epoch {epoch + 1} / {epochs}")
@@ -165,59 +197,55 @@ class MyModel():
                     val_losses.append(loss_val.item())
                     val_dices.append(dice_val.item())
 
-                fpr_perc = calc_fp_rate(confusions['fp_total'], confusions['tn_total'])
-                fnr_perc = calc_fn_rate(confusions['fn_total'], confusions['tp_total'])
-
-            avg_loss = np.mean(losses)
+            time_per_epoch = time.time() - start
             avg_val_loss = np.mean(val_losses)
-            avg_dice = np.mean(dices)
-            avg_val_dice = np.mean(val_dices)
 
-            history['losses'].append(avg_loss)
-            history['val_losses'].append(avg_val_loss)
-            history['dices'].append(avg_dice)
-            history['val_dices'].append(avg_val_dice)
-            history['fp_rate'].append(fpr_perc)
-            history['fn_rate'].append(fnr_perc)
-            history['fn_total'].append(confusions['fn_total'])
-            history['fp_total'].append(confusions['fp_total'])
-            history['f_total'].append(confusions['f_total'])
+            self.log_history(time_per_epoch, losses, val_losses, dices, val_dices, confusions)
+            self.last_step_stats()
             
-            print(f'Time per epoch: {(time.time() - start):.3f} seconds')
-            print(f'---')
-            print(f'Train. loss:', avg_loss)
-            print(f'Valid. loss:', avg_val_loss)
-            print(f'---')
-            print(f'Train. dice:', avg_dice)
-            print(f'Valid. dice:', avg_val_dice)
-            print(f'---')
-            print(f'False positive rate: {fpr_perc}')
-            print(f'False negative rate: {fnr_perc}')
-            print(f'---')
-            print(f"FP: {confusions['fp_total']}")
-            print(f"FN: {confusions['fn_total']}")
-            print(f"FP+FN:, {confusions['f_total']}")
-            print(f'---')
-
-            if avg_val_loss < best_score:
-                print(f"val_loss improved, {best_score} -> {avg_val_loss}")
-                print(f"val_loss improved by {best_score - avg_val_loss}")
-                print(f'Saving model: output/models/{self.checkpoint}.pt')
-                torch.save(self.model.state_dict(), f'output/models/{self.checkpoint}.pt')
-
-                best_score = avg_val_loss
-                trial = 0
-                
-            else:
-                trial += 1
-
-                if trial > tries:
-                    print(f'Early stopping')
-                    break
-
-                print(f"val_loss did not improved ({avg_val_loss}), {trial} / {tries}")
+            if early_stop.on_epoch_end(score = avg_val_loss):
+                break
 
             scheduler.step(avg_val_loss)
+
             print(f'---------------------------------------------------')
 
-        return history
+        return self.history
+
+    def log_history(self, time_per_epoch, losses, val_losses, dices, val_dices, confusions):
+        avg_loss = np.mean(losses)
+        avg_val_loss = np.mean(val_losses)
+        avg_dice = np.mean(dices)
+        avg_val_dice = np.mean(val_dices)
+
+        fp_rate = calc_fp_rate(confusions['fp_total'], confusions['tn_total'])
+        fn_rate = calc_fn_rate(confusions['fn_total'], confusions['tp_total'])
+
+        self.history['time_per_epoch'].append(time_per_epoch)
+        self.history['losses'].append(avg_loss)
+        self.history['val_losses'].append(avg_val_loss)
+        self.history['dices'].append(avg_dice)
+        self.history['val_dices'].append(avg_val_dice)
+        self.history['fp_rate'].append(fp_rate)
+        self.history['fn_rate'].append(fn_rate)
+        self.history['fp_total'].append(confusions['fp_total'])
+        self.history['fn_total'].append(confusions['fn_total'])
+        self.history['f_total'].append(confusions['f_total'])
+
+    def last_step_stats(self):
+        print(f"Time per epoch: {self.history['time_per_epoch'][-1]:.3f} seconds")
+        print(f'---')
+        print(f'Train. loss:', self.history['losses'][-1])
+        print(f'Valid. loss:', self.history['val_losses'][-1])
+        print(f'---')
+        print(f'Train. dice:', self.history['dices'][-1])
+        print(f'Valid. dice:', self.history['val_dices'][-1])
+        print(f'---')
+        print(f"False positive rate: {self.history['fp_rate'][-1]:.2%}")
+        print(f"False negative rate: {self.history['fn_rate'][-1]:.2%}")
+        print(f'---')
+        print(f"FP: {self.history['fp_total'][-1]}")
+        print(f"FN: {self.history['fn_total'][-1]}")
+        print(f"FP+FN:, {self.history['f_total'][-1]}")
+        print(f'---')
+

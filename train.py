@@ -20,7 +20,8 @@ for model in cfg.models:
     my_model = MyModel(
         arch = model['arch'],
         struct = cfg.setup['struct'],
-        n_filters = model['filters']
+        n_filters = model['filters'],
+        batch_size = cfg.setup['batch_size']
     )
 
     history = my_model.train(
