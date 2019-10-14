@@ -170,7 +170,7 @@ class MyModel():
 
             print(f'---------------------------------------------------')
 
-        np.save(f'output/models/{self.struct}_history.npy', self.history)
+        np.save(f'output/models/{self.checkpoint}_history.npy', self.history)
 
         return self.history
 
