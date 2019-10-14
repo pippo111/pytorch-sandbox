@@ -80,8 +80,8 @@ class MyModel():
 
         loss_fn = loss.get(loss_name)
         optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=lr_patience, verbose=True)
-        early_stop = EarlyStop(self.model, self.checkpoint, tries)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=lr_patience, verbose=True)
+        early_stop = EarlyStop(self.model, self.checkpoint, mode='max', label='Precision', tries=tries)
         alpha_step = 1 / epochs
         alpha_init = 1.0
         
@@ -158,17 +158,19 @@ class MyModel():
                     val_dices.append(dice_val.item())
 
             time_per_epoch = time.time() - start
-            avg_val_loss = np.mean(val_losses)
+            precision = calc_precision(confusions['tp_total'], confusions['fp_total'])
 
             self.log_history(time_per_epoch, losses, val_losses, dices, val_dices, confusions)
             self.last_step_stats()
             
-            if early_stop.on_epoch_end(score = avg_val_loss):
+            if early_stop.on_epoch_end(score = precision):
                 break
 
-            scheduler.step(avg_val_loss)
+            scheduler.step(precision)
 
             print(f'---------------------------------------------------')
+
+        np.save(f'output/models/{self.struct}_history.npy', self.history)
 
         return self.history
 

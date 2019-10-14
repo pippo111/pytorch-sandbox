@@ -2,17 +2,24 @@ import numpy as np
 import torch
 
 class EarlyStop():
-    def __init__(self, model, checkpoint, tries=20):
+    def __init__(self, model, checkpoint, mode='min', label='score', tries=20):
         self.model = model
         self.checkpoint = checkpoint
-        self.best_score = np.Inf
         self.trial = 0
+        self.label = label
         self.tries = tries
+        
+        if mode == 'min':
+            self.monitor_op = np.less
+            self.best_score = np.Inf
+        elif mode == 'max':
+            self.monitor_op = np.greater
+            self.best_score = -np.Inf
 
     def on_epoch_end(self, score):
-        if score < self.best_score:
-            print(f"val_loss improved, {self.best_score} -> {score}")
-            print(f"val_loss improved by {self.best_score - score}")
+        if self.monitor_op(score, self.best_score):
+            print(f"{self.label} improved, {self.best_score} -> {score}")
+            print(f"{self.label} improved by {self.best_score - score}")
             print(f'Saving model: output/models/{self.checkpoint}.pt')
             torch.save(self.model.state_dict(), f'output/models/{self.checkpoint}.pt')
 
@@ -27,6 +34,6 @@ class EarlyStop():
                 
                 return True
 
-            print(f"val_loss did not improved ({score}), {self.trial} / {self.tries}")
+            print(f"{self.label} did not improved ({score}), {self.trial} / {self.tries}")
 
         return False
