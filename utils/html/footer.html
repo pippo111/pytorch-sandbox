@@ -1,0 +1,63 @@
+<script>
+    var tf = new TableFilter(document.querySelector('.dataframe'), {
+        base_path: 'http://filip.vot.pl/TableFilter/dist/tablefilter/',
+        col_1: 'checklist',
+        col_2: 'checklist',
+        col_3: 'checklist',
+        col_4: 'checklist',
+        col_5: 'checklist',
+        col_6: 'select',
+        col_types: [
+            'string',
+            'string',
+            'string',
+            'string',
+            'number',
+            'number',
+            'string',
+            'number',
+            'number',
+            'number',
+            'number',
+            'number',
+            'number',
+            'number',
+            'number',
+            'number',
+            'number'
+        ],
+        col_widths: [
+            '200px',
+            'null',
+            'null',
+            'null',
+            'null',
+            'null',
+            'null',
+            'null',
+            'null',
+            'null',
+            'null',
+            'null',
+            'null',
+            'null',
+            'null',
+            'null',
+            'null'
+        ],
+        extensions:[
+            {
+                name: 'colsVisibility',
+                at_start: [],
+                text: 'Hide columns: ',
+                enable_tick_all: true
+            },
+            {
+                name: 'sort'
+            }
+        ]
+    });
+    tf.init();
+</script>
+</body>
+</html>

@@ -1,5 +1,8 @@
 import time
+import os
+import operator
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 from torch import optim
@@ -11,6 +14,7 @@ from utils.image import calc_dist_map, cubify_scan
 from utils.common import calc_weights
 from utils.metrics import calc_confusion_matrix, calc_fn_rate, calc_fp_rate, calc_precision
 from utils.vtk import render_scan
+from utils.logs import to_table
 
 class MyModel():
     def __init__(
@@ -21,11 +25,13 @@ class MyModel():
         batch_size=16,
         n_channels=1,
         n_classes=1,
+        optimizer='Adam'
     ):
         self.struct = struct
         self.arch = arch
         self.n_filters = n_filters
         self.batch_size = batch_size
+        self.optimizer = 'Adam'
 
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model = network.get(arch)(n_channels, n_filters, n_classes).to(self.device)
@@ -51,36 +57,6 @@ class MyModel():
         self.model.load_state_dict(torch.load(f'output/models/{filename}'))
         self.model.eval()
 
-    def visualize(self, test_loader):
-        scan_preds = list()
-        scan_mask = list()
-
-        for X_batch, y_batch in test_loader:
-            X_batch = X_batch.to(self.device)
-            y_batch = y_batch.to(self.device)
-
-            with torch.no_grad():
-                self.model.eval()
-
-                preds = self.model(X_batch)
-                preds = preds.cpu().numpy()
-                preds = (preds > 0.5).astype(np.uint8)
-                scan_preds.append(preds.squeeze())
-                
-                mask = y_batch.cpu().numpy().squeeze().astype(np.uint8)
-                scan_mask.append(mask)
-                
-        scan_preds = np.concatenate([img for img in scan_preds])
-        scan_mask = np.concatenate([img for img in scan_mask])
-
-        print('Preds shape:', scan_preds.shape)
-        print('Mask shape:', scan_mask.shape)
-
-        combined_scan = scan_mask * 2 + scan_preds
-        test_scan = cubify_scan(combined_scan, 256)
-
-        render_scan(test_scan, 256)
-
     def train(
         self,
         epochs, 
@@ -99,6 +75,8 @@ class MyModel():
             self.batch_size,
             self.n_filters
         )
+
+        self.loss_name = loss_name
 
         loss_fn = loss.get(loss_name)
         optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
@@ -125,7 +103,7 @@ class MyModel():
 
                 y_hat = self.model(X_batch)
 
-                if loss_name == 'boundary':
+                if loss_name.startswith('boundary'):
                     alpha = alpha_init - epoch * alpha_step
                     loss_val = loss_fn(y_hat, y_batch, alpha)
                 else:
@@ -156,7 +134,7 @@ class MyModel():
                     
                     y_hat = self.model(X_batch)
 
-                    if loss_name == 'boundary':
+                    if loss_name.startswith('boundary'):
                         alpha = alpha_init - epoch * alpha_step
                         loss_val = loss_fn(y_hat, y_batch, alpha)
                     else:
@@ -193,6 +171,77 @@ class MyModel():
             print(f'---------------------------------------------------')
 
         return self.history
+
+    def visualize(self, test_loader):
+        scan_preds = list()
+        scan_mask = list()
+
+        for X_batch, y_batch in test_loader:
+            X_batch = X_batch.to(self.device)
+            y_batch = y_batch.to(self.device)
+
+            with torch.no_grad():
+                self.model.eval()
+
+                preds = self.model(X_batch)
+                preds = preds.cpu().numpy()
+                preds = (preds > 0.5).astype(np.uint8)
+                scan_preds.append(preds.squeeze())
+                
+                mask = y_batch.cpu().numpy().squeeze().astype(np.uint8)
+                scan_mask.append(mask)
+                
+        scan_preds = np.concatenate([img for img in scan_preds])
+        scan_mask = np.concatenate([img for img in scan_mask])
+
+        print('Preds shape:', scan_preds.shape)
+        print('Mask shape:', scan_mask.shape)
+
+        combined_scan = scan_mask * 2 + scan_preds
+        test_scan = cubify_scan(combined_scan, 256)
+
+        render_scan(test_scan, 256)
+
+    def save_results(self):
+        csv_file = f'output/models/{self.struct}_results.csv'
+        html_file = f'output/models/{self.struct}_results.html'
+
+        index, value = min(enumerate(self.history['val_losses']), key=operator.itemgetter(1))
+
+        setup = {
+            'Arch': self.arch,
+            'Optimizer': self.optimizer,
+            'Loss fn': self.loss_name,
+            'Batch size': self.batch_size,
+            'Filters': self.n_filters
+        }
+
+        results = {
+            'Time per epoch': f"{self.history['time_per_epoch'][index]:.3f}",
+            'Train. loss': self.history['losses'][index],
+            'Valid. loss': self.history['val_losses'][index],
+            'Train. dice': self.history['dices'][index],
+            'Valid. dice': self.history['val_dices'][index],
+            'False positive rate': f"{self.history['fp_rate'][index]:.2%}",
+            'False negative rate': f"{self.history['fn_rate'][index]:.2%}",
+            'Precision rate': f"{self.history['precision'][index]:.2%}",
+            'FP': self.history['fp_total'][index],
+            'FN': self.history['fn_total'][index],
+            'FP+FN': self.history['f_total'][index],
+        }
+
+        results = [{ 'checkpoint': self.checkpoint, **setup, **results }]
+        output = pd.DataFrame(results)
+
+        if not os.path.exists(csv_file):
+            output.to_csv(csv_file, index=False, header=True, mode='a')
+        else:
+            output.to_csv(csv_file, index=False, header=False, mode='a')
+
+        generated_csv = pd.read_csv(csv_file)
+
+        to_table(generated_csv.to_html(index=False), html_file)
+
 
     def log_history(self, time_per_epoch, losses, val_losses, dices, val_dices, confusions):
         avg_loss = np.mean(losses)

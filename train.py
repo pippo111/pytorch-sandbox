@@ -31,3 +31,5 @@ for model in cfg.models:
         loss_name = model['loss_fn'],
         learning_rate = model['lr']
     )
+
+    my_model.save_results()
