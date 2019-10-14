@@ -6,41 +6,11 @@ from torch import optim
 
 from networks import network
 from networks import loss
+from networks.callbacks.early_stop import EarlyStop
 from utils.image import calc_dist_map, cubify_scan
 from utils.common import calc_weights
 from utils.metrics import calc_confusion_matrix, calc_fn_rate, calc_fp_rate
 from utils.vtk import render_scan
-
-class EarlyStop():
-    def __init__(self, model, checkpoint, tries=20):
-        self.model = model
-        self.checkpoint = checkpoint
-        self.best_score = np.Inf
-        self.trial = 0
-        self.tries = tries
-
-    def on_epoch_end(self, score):
-        if score < self.best_score:
-            print(f"val_loss improved, {self.best_score} -> {score}")
-            print(f"val_loss improved by {self.best_score - score}")
-            print(f'Saving model: output/models/{self.checkpoint}.pt')
-            torch.save(self.model.state_dict(), f'output/models/{self.checkpoint}.pt')
-
-            self.best_score = score
-            trial = 0
-            
-        else:
-            trial += 1
-
-            if trial > self.tries:
-                print(f'Early stopping')
-                
-                return True
-
-            print(f"val_loss did not improved ({score}), {trial} / {self.tries}")
-
-        return False
-
 
 class MyModel():
     def __init__(
