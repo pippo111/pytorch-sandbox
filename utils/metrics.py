@@ -48,3 +48,8 @@ def calc_fn_rate(fn_total, tp_total):
     fn_rate = fn_total / (fn_total + tp_total) if tp_total != 0 or fn_total != 0 else 0
 
     return fn_rate
+
+def calc_precision(tp_total, fp_total):
+    precision = tp_total / (tp_total + fp_total)
+
+    return precision

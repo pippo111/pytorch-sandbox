@@ -9,7 +9,7 @@ from networks import loss
 from networks.callbacks.early_stop import EarlyStop
 from utils.image import calc_dist_map, cubify_scan
 from utils.common import calc_weights
-from utils.metrics import calc_confusion_matrix, calc_fn_rate, calc_fp_rate
+from utils.metrics import calc_confusion_matrix, calc_fn_rate, calc_fp_rate, calc_precision
 from utils.vtk import render_scan
 
 class MyModel():
@@ -40,6 +40,7 @@ class MyModel():
             'fp_total': [],
             'fn_total': [],
             'f_total': [],
+            'precision': [],
             'time_per_epoch': []
         }
 
@@ -109,7 +110,6 @@ class MyModel():
         for epoch in range(epochs):
             print(f"Epoch {epoch + 1} / {epochs}")
             start = time.time()
-            best_f_total = np.Inf
 
             losses = []
             val_losses = []
@@ -202,6 +202,7 @@ class MyModel():
 
         fp_rate = calc_fp_rate(confusions['fp_total'], confusions['tn_total'])
         fn_rate = calc_fn_rate(confusions['fn_total'], confusions['tp_total'])
+        precision = calc_precision(confusions['tp_total'], confusions['fp_total'])
 
         self.history['time_per_epoch'].append(time_per_epoch)
         self.history['losses'].append(avg_loss)
@@ -213,6 +214,7 @@ class MyModel():
         self.history['fp_total'].append(confusions['fp_total'])
         self.history['fn_total'].append(confusions['fn_total'])
         self.history['f_total'].append(confusions['f_total'])
+        self.history['precision'].append(precision)
 
     def last_step_stats(self):
         print(f"Time per epoch: {self.history['time_per_epoch'][-1]:.3f} seconds")
@@ -225,6 +227,7 @@ class MyModel():
         print(f'---')
         print(f"False positive rate: {self.history['fp_rate'][-1]:.2%}")
         print(f"False negative rate: {self.history['fn_rate'][-1]:.2%}")
+        print(f"Precision rate: {self.history['precision'][-1]:.2%}")
         print(f'---')
         print(f"FP: {self.history['fp_total'][-1]}")
         print(f"FN: {self.history['fn_total'][-1]}")

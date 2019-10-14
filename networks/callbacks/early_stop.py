@@ -17,16 +17,16 @@ class EarlyStop():
             torch.save(self.model.state_dict(), f'output/models/{self.checkpoint}.pt')
 
             self.best_score = score
-            trial = 0
+            self.trial = 0
             
         else:
-            trial += 1
+            self.trial += 1
 
-            if trial > self.tries:
+            if self.trial > self.tries:
                 print(f'Early stopping')
                 
                 return True
 
-            print(f"val_loss did not improved ({score}), {trial} / {self.tries}")
+            print(f"val_loss did not improved ({score}), {self.trial} / {self.tries}")
 
         return False
