@@ -12,7 +12,7 @@ from networks import loss
 from networks.callbacks.early_stop import EarlyStop
 from utils.image import calc_dist_map, cubify_scan
 from utils.common import calc_weights
-from utils.metrics import calc_confusion_matrix, calc_fn_rate, calc_fp_rate, calc_precision
+from utils.metrics import calc_confusion_matrix, calc_fn_rate, calc_fp_rate, calc_precision, calc_recall
 from utils.vtk import render_scan
 from utils.logs import to_table
 
@@ -80,8 +80,8 @@ class MyModel():
 
         loss_fn = loss.get(loss_name)
         optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=lr_patience, verbose=True)
-        early_stop = EarlyStop(self.model, self.checkpoint, mode='max', label='Precision', tries=tries)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=lr_patience, verbose=True)
+        early_stop = EarlyStop(self.model, self.checkpoint, mode='min', label='Falses total', tries=tries)
         alpha_step = 1 / epochs
         alpha_init = 1.0
         
@@ -158,15 +158,14 @@ class MyModel():
                     val_dices.append(dice_val.item())
 
             time_per_epoch = time.time() - start
-            precision = calc_precision(confusions['tp_total'], confusions['fp_total'])
 
             self.log_history(time_per_epoch, losses, val_losses, dices, val_dices, confusions)
             self.last_step_stats()
             
-            if early_stop.on_epoch_end(score = precision):
+            if early_stop.on_epoch_end(score = confusions['f_total']):
                 break
 
-            scheduler.step(precision)
+            scheduler.step(confusions['f_total'])
 
             print(f'---------------------------------------------------')
 
@@ -208,7 +207,7 @@ class MyModel():
         csv_file = f'output/models/{self.struct}_results.csv'
         html_file = f'output/models/{self.struct}_results.html'
 
-        index, value = min(enumerate(self.history['val_losses']), key=operator.itemgetter(1))
+        index, value = min(enumerate(self.history['f_total']), key=operator.itemgetter(1))
 
         setup = {
             'Arch': self.arch,
@@ -254,6 +253,7 @@ class MyModel():
         fp_rate = calc_fp_rate(confusions['fp_total'], confusions['tn_total'])
         fn_rate = calc_fn_rate(confusions['fn_total'], confusions['tp_total'])
         precision = calc_precision(confusions['tp_total'], confusions['fp_total'])
+        recall = calc_recall(confusions['tp_total'], confusions['fn_total'])
 
         self.history['time_per_epoch'].append(time_per_epoch)
         self.history['losses'].append(avg_loss)
@@ -266,6 +266,7 @@ class MyModel():
         self.history['fn_total'].append(confusions['fn_total'])
         self.history['f_total'].append(confusions['f_total'])
         self.history['precision'].append(precision)
+        self.history['recall'].append(recall)
 
     def last_step_stats(self):
         print(f"Time per epoch: {self.history['time_per_epoch'][-1]:.3f} seconds")
@@ -279,6 +280,7 @@ class MyModel():
         print(f"False positive rate: {self.history['fp_rate'][-1]:.2%}")
         print(f"False negative rate: {self.history['fn_rate'][-1]:.2%}")
         print(f"Precision rate: {self.history['precision'][-1]:.2%}")
+        print(f"Recall rate: {self.history['recall'][-1]:.2%}")
         print(f'---')
         print(f"FP: {self.history['fp_total'][-1]}")
         print(f"FN: {self.history['fn_total'][-1]}")
