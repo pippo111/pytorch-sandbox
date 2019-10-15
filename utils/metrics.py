@@ -68,7 +68,10 @@ def calc_recall(tp_total, fn_total):
 def calc_f1score(tp_total, fp_total, fn_total):
     precision = calc_precision(tp_total, fp_total)
     recall = calc_recall(tp_total, fn_total)
+
+    if (precision + recall) == 0:
+        return 0.0
     
-    f1 = 2 * ( (precision*recall) / (precision+recall) )
+    f1 = 2 * ( (precision * recall) / (precision + recall) )
 
     return f1
