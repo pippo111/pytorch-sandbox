@@ -34,6 +34,6 @@ class EarlyStop():
                 
                 return True
 
-            print(f"{self.label} did not improved ({score}), {self.trial} / {self.tries}")
+            print(f"{self.label} did not improved ({self.best_score}), {self.trial} / {self.tries}")
 
         return False
