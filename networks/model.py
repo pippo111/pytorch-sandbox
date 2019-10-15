@@ -12,7 +12,7 @@ from networks import loss
 from networks.callbacks.early_stop import EarlyStop
 from utils.image import calc_dist_map, cubify_scan
 from utils.common import calc_weights
-from utils.metrics import calc_confusion_matrix, calc_fn_rate, calc_fp_rate, calc_precision, calc_recall
+from utils.metrics import calc_confusion_matrix, calc_fn_rate, calc_fp_rate, calc_precision, calc_recall, calc_f1score
 from utils.vtk import render_scan
 from utils.logs import to_table
 
@@ -47,6 +47,8 @@ class MyModel():
             'fn_total': [],
             'f_total': [],
             'precision': [],
+            'recall': [],
+            'f1_score': [],
             'time_per_epoch': []
         }
 
@@ -254,6 +256,7 @@ class MyModel():
         fn_rate = calc_fn_rate(confusions['fn_total'], confusions['tp_total'])
         precision = calc_precision(confusions['tp_total'], confusions['fp_total'])
         recall = calc_recall(confusions['tp_total'], confusions['fn_total'])
+        f1_score = calc_f1score(confusions['tp_total'], confusions['fp_total'], confusions['fn_total'])
 
         self.history['time_per_epoch'].append(time_per_epoch)
         self.history['losses'].append(avg_loss)
@@ -267,6 +270,7 @@ class MyModel():
         self.history['f_total'].append(confusions['f_total'])
         self.history['precision'].append(precision)
         self.history['recall'].append(recall)
+        self.history['f1_score'].append(f1_score)
 
     def last_step_stats(self):
         print(f"Time per epoch: {self.history['time_per_epoch'][-1]:.3f} seconds")
@@ -281,6 +285,7 @@ class MyModel():
         print(f"False negative rate: {self.history['fn_rate'][-1]:.2%}")
         print(f"Precision rate: {self.history['precision'][-1]:.2%}")
         print(f"Recall rate: {self.history['recall'][-1]:.2%}")
+        print(f"F1 score rate: {self.history['f1_score'][-1]:.2%}")
         print(f'---')
         print(f"FP: {self.history['fp_total'][-1]}")
         print(f"FN: {self.history['fn_total'][-1]}")

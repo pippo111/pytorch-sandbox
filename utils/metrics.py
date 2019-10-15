@@ -64,3 +64,11 @@ def calc_recall(tp_total, fn_total):
     recall = tp_total / (tp_total + fn_total)
 
     return recall
+
+def calc_f1score(tp_total, fp_total, fn_total):
+    precision = calc_precision(tp_total, fp_total)
+    recall = calc_recall(tp_total, fn_total)
+    
+    f1 = 2 * ( (precision*recall) / (precision+recall) )
+
+    return f1
