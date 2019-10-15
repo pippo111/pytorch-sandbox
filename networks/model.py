@@ -228,6 +228,8 @@ class MyModel():
             'False positive rate': f"{self.history['fp_rate'][index]:.2%}",
             'False negative rate': f"{self.history['fn_rate'][index]:.2%}",
             'Precision rate': f"{self.history['precision'][index]:.2%}",
+            'Recall rate': f"{self.history['recall'][index]:.2%}",
+            'F1 score rate': f"{self.history['f1_score'][index]:.2%}",
             'FP': self.history['fp_total'][index],
             'FN': self.history['fn_total'][index],
             'FP+FN': self.history['f_total'][index],
