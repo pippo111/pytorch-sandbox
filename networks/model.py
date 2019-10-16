@@ -9,6 +9,7 @@ from torch import optim
 
 from networks import network
 from networks import loss
+from networks import optimizer
 from networks.callbacks.early_stop import EarlyStop
 from utils.image import calc_dist_map, cubify_scan
 from utils.common import calc_weights
@@ -24,14 +25,12 @@ class MyModel():
         n_filters,
         batch_size=16,
         n_channels=1,
-        n_classes=1,
-        optimizer='Adam'
+        n_classes=1
     ):
         self.struct = struct
         self.arch = arch
         self.n_filters = n_filters
         self.batch_size = batch_size
-        self.optimizer = 'Adam'
 
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model = network.get(arch)(n_channels, n_filters, n_classes).to(self.device)
@@ -65,6 +64,7 @@ class MyModel():
         train_loader,
         valid_loader,
         loss_name,
+        optimizer_name='Adam',
         learning_rate=1e-3,
         lr_patience=10,
         tries=20
@@ -72,17 +72,18 @@ class MyModel():
         self.checkpoint = "{}_{}_{}_{}_bs-{}_f-{}".format(
             self.struct,
             self.arch,
-            'Adam',
+            optimizer_name,
             loss_name,
             self.batch_size,
             self.n_filters
         )
 
         self.loss_name = loss_name
+        self.optimizer_name = optimizer_name
 
         loss_fn = loss.get(loss_name)
-        optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=lr_patience, verbose=True)
+        optimizer_fn = optimizer.get(optimizer_name)(self.model.parameters(), lr=learning_rate)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer_fn, mode='min', factor=0.5, patience=lr_patience, verbose=True)
         early_stop = EarlyStop(self.model, self.checkpoint, mode='min', label='Falses total', tries=tries)
         alpha_step = 1 / epochs
         alpha_init = 1.0
@@ -101,7 +102,7 @@ class MyModel():
                 y_batch = y_batch.to(self.device)
 
                 self.model.train()
-                optimizer.zero_grad()
+                optimizer_fn.zero_grad()
 
                 y_hat = self.model(X_batch)
 
@@ -114,7 +115,7 @@ class MyModel():
                 dice_val = loss.get('dice')(y_hat, y_batch)
 
                 loss_val.backward()
-                optimizer.step()
+                optimizer_fn.step()
 
                 losses.append(loss_val.item())
                 dices.append(dice_val.item())
@@ -213,7 +214,7 @@ class MyModel():
 
         setup = {
             'Arch': self.arch,
-            'Optimizer': self.optimizer,
+            'Optimizer': self.optimizer_name,
             'Loss fn': self.loss_name,
             'Batch size': self.batch_size,
             'Filters': self.n_filters
