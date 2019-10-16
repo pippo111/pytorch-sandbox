@@ -80,7 +80,6 @@ class MyModel():
 
         self.loss_name = loss_name
         self.optimizer_name = optimizer_name
-        print(optimizer_name)
 
         loss_fn = loss.get(loss_name)
         optimizer_fn = optimizer.get(optimizer_name)(self.model.parameters(), lr=learning_rate)
@@ -88,8 +87,6 @@ class MyModel():
         early_stop = EarlyStop(self.model, self.checkpoint, mode='min', label='Falses total', tries=tries)
         alpha_step = 1 / epochs
         alpha_init = 1.0
-
-        print(optimizer_fn)
         
         for epoch in range(epochs):
             print(f"Epoch {epoch + 1} / {epochs}")
