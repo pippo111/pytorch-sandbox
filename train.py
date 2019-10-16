@@ -29,6 +29,7 @@ for model in cfg.models:
         train_loader = train_loader,
         valid_loader = valid_loader,
         loss_name = model['loss_fn'],
+        optimizer_name=model['optimizer_fn'],
         learning_rate = model['lr']
     )
 
