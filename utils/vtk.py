@@ -95,3 +95,95 @@ def render_scan(scan, dim):
     #  before control is handed over to the main-loop.
     renderWin.Render()
     renderInteractor.Start()
+
+import vtk
+
+def render_mesh(scan, dim):
+    colors = vtk.vtkNamedColors()
+
+    # We begin by creating the data we want to render.
+    # For this tutorial, we create a 3D-image containing three overlaping cubes.
+    # This data can of course easily be replaced by data from a medical CT-scan or anything else three dimensional.
+    # The only limit is that the data must be reduced to unsigned 8 bit or 16 bit integers.
+    data_matrix = scan
+
+    # For VTK to be able to use the data, it must be stored as a VTK-image.
+    #  This can be done by the vtkImageImport-class which
+    # imports raw data and stores it.
+    dataImporter = vtk.vtkImageImport()
+    # The previously created array is converted to a string of chars and imported.
+    data_string = data_matrix.tostring()
+    dataImporter.CopyImportVoidPointer(data_string, len(data_string))
+    # The type of the newly imported data is set to unsigned char (uint8)
+    dataImporter.SetDataScalarTypeToUnsignedChar()
+    # Because the data that is imported only contains an intensity value
+    #  (it isnt RGB-coded or someting similar), the importer must be told this is the case.
+    dataImporter.SetNumberOfScalarComponents(1)
+    # The following two functions describe how the data is stored and the dimensions of the array it is stored in.
+    #  For this simple case, all axes are of length 75 and begins with the first element.
+    #  For other data, this is probably not the case.
+    # I have to admit however, that I honestly dont know the difference between SetDataExtent()
+    #  and SetWholeExtent() although VTK complains if not both are used.
+    dataImporter.SetDataExtent(0, dim-1, 0, dim-1, 0, dim-1)
+    dataImporter.SetWholeExtent(0, dim-1, 0, dim-1, 0, dim-1)
+
+    dmc = vtk.vtkDiscreteMarchingCubes()
+    dmc.SetInputConnection(dataImporter.GetOutputPort())
+    dmc.GenerateValues(1, 3, 3)
+    dmc.Update()
+
+    # dmc.SetValue(0, 0)
+    # dmc.SetValue(1, 1)
+    # dmc.SetValue(2, 2)
+    # dmc.SetValue(3, 3)
+    # dmc.Update()
+
+    ## Create the color map
+    colorLookupTable= vtk.vtkLookupTable()
+    # colorLookupTable.SetTableRange(minz, maxz) #this does nothing, use mapper.SetScalarRange(minz, maxz)
+
+    colorLookupTable.SetTableRange(0,3)
+    # colorLookupTable.SetHueRange(2/3.0, 1)
+    #colorLookupTable.SetSaturationRange(0, 0)
+    #colorLookupTable.SetValueRange(1, 0)
+    colorLookupTable.SetNumberOfColors(4) #256 default
+    colorLookupTable.Build()
+
+    mapper = vtk.vtkPolyDataMapper()
+    mapper.SetInputConnection(dmc.GetOutputPort())
+    mapper.SetLookupTable(colorLookupTable)
+
+    actor = vtk.vtkActor()
+    actor.SetMapper(mapper)
+
+    renderer = vtk.vtkRenderer()
+    renderer.AddActor(actor)
+    renderer.SetBackground(1.0, 1.0, 1.0)
+
+    renderWin = vtk.vtkRenderWindow()
+    renderWin.AddRenderer(renderer)
+    renderInteractor = vtk.vtkRenderWindowInteractor()
+    renderInteractor.SetRenderWindow(renderWin)
+
+    # ... and set window size.
+    renderWin.SetSize(600, 600)
+
+    # A simple function to be called when the user decides to quit the application.
+    def exitCheck(obj, event):
+        if obj.GetEventPending() != 0:
+            obj.SetAbortRender(1)
+
+    # Tell the application to use the function as an exit check.
+    renderWin.AddObserver("AbortCheckEvent", exitCheck)
+
+    renderInteractor.Initialize()
+    # Because nothing will be rendered without any input, we order the first render manually
+    #  before control is handed over to the main-loop.
+    renderWin.Render()
+    renderInteractor.Start()
+
+    writer = vtk.vtkSTLWriter()
+    writer.SetInputConnection(dmc.GetOutputPort())
+    writer.SetFileTypeToBinary()
+    writer.SetFileName("wmh.stl")
+    writer.Write()

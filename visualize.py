@@ -8,12 +8,12 @@ from utils.dataset import get_loader
 
 # Model setup
 model = {
-    'arch': 'Unet', 'filters': 2,
-    'filename': 'lateral_ventricle_Unet_Adam_bce_bs-16_f-2.pt'
+    'arch': 'Unet', 'filters': 16,
+    'filename': 'wmh_Unet_Adam_boundary_dice_bs-16_f-16.pt'
 }
 
 # Create train / validation loaders
-dataset_dir = '/home/filip/Projekty/ML/datasets/processed/mindboggle_84_Nx192x256_lateral_ventricle'
+dataset_dir = '/home/filip/Projekty/ML/datasets/processed/wmh_all_80_192x256x256_wmh'
 test_loader = get_loader(dataset_dir, 'test', shuffle = False)
 
 # For each model setup perform training
