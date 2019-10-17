@@ -23,13 +23,15 @@ class Dataset2d(Dataset):
     def __len__(self):
         return len(self.X)
 
-def get_loader(dataset_dir, dataset_type='train', batch_size=16, shuffle=True):
+def get_loader(dataset_dir, dataset_type='train', batch_size=16, shuffle=True, limit=None):
     X_files = sorted(
-        glob.glob(os.path.join(dataset_dir, dataset_type, 'images', '*.png'))[:]
-    )
+        glob.glob(os.path.join(dataset_dir, dataset_type, 'images/**', '*.png'), recursive=True)
+    )[:limit]
     y_files = sorted(
-        glob.glob(os.path.join(dataset_dir, dataset_type, 'labels', '*.png'))[:]
-    )
+        glob.glob(os.path.join(dataset_dir, dataset_type, 'labels/**', '*.png'), recursive=True)
+    )[:limit]
+
+    print(len(X_files))
 
     dataset = Dataset2d(X_files, y_files)
     loader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=shuffle)
