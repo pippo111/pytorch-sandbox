@@ -9,7 +9,7 @@ from utils.dataset import get_loader
 # Model setup
 model = {
     'arch': 'Unet', 'filters': 16,
-    'filename': 'wmh_Unet_Adam_boundary_dice_bs-16_f-16.pt'
+    'filename': 'brain_Unet_Adam_bce_bs-16_f-16.pt'
 }
 
 # Create train / validation loaders

@@ -65,6 +65,7 @@ class MyModel():
         valid_loader,
         loss_name,
         optimizer_name='Adam',
+        stripper=None,
         learning_rate=1e-3,
         lr_patience=10,
         tries=20
@@ -101,6 +102,12 @@ class MyModel():
                 X_batch = X_batch.to(self.device)
                 y_batch = y_batch.to(self.device)
 
+                if stripper:
+                    brain_mask = stripper.predict(X_batch)
+                    brain_mask = torch.from_numpy(brain_mask).float().to(self.device)
+                    X_batch = brain_mask * X_batch
+                    y_batch = brain_mask * y_batch
+
                 self.model.train()
                 optimizer_fn.zero_grad()
 
@@ -132,10 +139,18 @@ class MyModel():
                 for X_batch, y_batch in valid_loader:
                     X_batch = X_batch.to(self.device)
                     y_batch = y_batch.to(self.device)
+
+                    if stripper:
+                        brain_mask = stripper.predict(X_batch)
+                        brain_mask = torch.from_numpy(brain_mask).float().to(self.device)
+                        X_batch = brain_mask * X_batch
                     
                     self.model.eval()
                     
                     y_hat = self.model(X_batch)
+
+                    if stripper:
+                        y_hat = brain_mask * y_hat
 
                     if loss_name.startswith('boundary'):
                         alpha = alpha_init - epoch * alpha_step
@@ -205,6 +220,19 @@ class MyModel():
         test_scan = cubify_scan(combined_scan, 256)
 
         render_scan(test_scan, 256)
+
+    def predict(self, scan):
+        scan = scan.to(self.device)
+
+        with torch.no_grad():
+            self.model.eval()
+
+            preds = self.model(scan)
+            preds = preds.cpu().numpy()
+            preds = (preds > 0.5).astype(np.uint8)
+
+        return preds
+
 
     def save_results(self):
         csv_file = f'output/models/{self.struct}_results.csv'
