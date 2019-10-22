@@ -14,7 +14,7 @@ from networks.callbacks.early_stop import EarlyStop
 from utils.image import calc_dist_map, cubify_scan, labels_to_mask
 from utils.common import calc_weights
 from utils.metrics import calc_confusion_matrix, calc_fn_rate, calc_fp_rate, calc_precision, calc_recall, calc_f1score
-from utils.vtk import render_mesh, render_scan
+from utils.vtk import render_mesh
 from utils.logs import to_table
 
 class MyModel():
@@ -211,12 +211,12 @@ class MyModel():
             {
                 'data': false_negative,
                 'color': 'Crimson',
-                'opacity': 0.3
+                'opacity': 0.6
             },
             {
                 'data': false_positive,
                 'color': 'Gold',
-                'opacity': 0.3
+                'opacity': 0.6
             },
             {
                 'data': true_positive,

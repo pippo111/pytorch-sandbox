@@ -1,102 +1,6 @@
 import vtk
 from vtk.util import numpy_support
 
-def render_scan(scan, dim):
-    colors = vtk.vtkNamedColors()
-
-    # We begin by creating the data we want to render.
-    # For this tutorial, we create a 3D-image containing three overlaping cubes.
-    # This data can of course easily be replaced by data from a medical CT-scan or anything else three dimensional.
-    # The only limit is that the data must be reduced to unsigned 8 bit or 16 bit integers.
-    data_matrix = scan
-
-    # For VTK to be able to use the data, it must be stored as a VTK-image.
-    #  This can be done by the vtkImageImport-class which
-    # imports raw data and stores it.
-    dataImporter = vtk.vtkImageImport()
-    # The previously created array is converted to a string of chars and imported.
-    data_string = data_matrix.tostring()
-    dataImporter.CopyImportVoidPointer(data_string, len(data_string))
-    # The type of the newly imported data is set to unsigned char (uint8)
-    dataImporter.SetDataScalarTypeToUnsignedChar()
-    # Because the data that is imported only contains an intensity value
-    #  (it isnt RGB-coded or someting similar), the importer must be told this is the case.
-    dataImporter.SetNumberOfScalarComponents(1)
-    # The following two functions describe how the data is stored and the dimensions of the array it is stored in.
-    #  For this simple case, all axes are of length 75 and begins with the first element.
-    #  For other data, this is probably not the case.
-    # I have to admit however, that I honestly dont know the difference between SetDataExtent()
-    #  and SetWholeExtent() although VTK complains if not both are used.
-    dataImporter.SetDataExtent(0, dim-1, 0, dim-1, 0, dim-1)
-    dataImporter.SetWholeExtent(0, dim-1, 0, dim-1, 0, dim-1)
-
-    # The following class is used to store transparency-values for later retrival.
-    #  In our case, we want the value 0 to be
-    # completely opaque whereas the three different cubes are given different transparency-values to show how it works.
-    alphaChannelFunc = vtk.vtkPiecewiseFunction()
-    alphaChannelFunc.AddPoint(0, 0.0)
-    alphaChannelFunc.AddPoint(1, 0.3)
-    alphaChannelFunc.AddPoint(2, 0.3)
-    alphaChannelFunc.AddPoint(3, 0.9)
-
-    # Colors for false positive (red), false negative (yellow), true positive (green)
-    redRGB = colors.GetColor3d("Crimson")
-    yellowRGB = colors.GetColor3d("Gold")
-    greenRGB = colors.GetColor3d("ForestGreen")
-    
-    # This class stores color data and can create color tables from a few color points.
-    #  For this demo, we want the three cubes to be of the colors red green and blue.
-    colorFunc = vtk.vtkColorTransferFunction()
-    colorFunc.AddRGBPoint(0, 0.0, 0.0, 0.0)
-    colorFunc.AddRGBPoint(1, redRGB[0], redRGB[1], redRGB[2])
-    colorFunc.AddRGBPoint(2, yellowRGB[0], yellowRGB[1], yellowRGB[2])
-    colorFunc.AddRGBPoint(3, greenRGB[0], greenRGB[1], greenRGB[2])
-
-    # The previous two classes stored properties.
-    #  Because we want to apply these properties to the volume we want to render,
-    # we have to store them in a class that stores volume properties.
-    volumeProperty = vtk.vtkVolumeProperty()
-    volumeProperty.SetColor(colorFunc)
-    volumeProperty.SetScalarOpacity(alphaChannelFunc)
-
-    volumeMapper = vtk.vtkFixedPointVolumeRayCastMapper()
-    volumeMapper.SetInputConnection(dataImporter.GetOutputPort())
-
-    # The class vtkVolume is used to pair the previously declared volume as well as the properties
-    #  to be used when rendering that volume.
-    volume = vtk.vtkVolume()
-    volume.SetMapper(volumeMapper)
-    volume.SetProperty(volumeProperty)
-
-    # With almost everything else ready, its time to initialize the renderer and window, as well as
-    #  creating a method for exiting the application
-    renderer = vtk.vtkRenderer()
-    renderWin = vtk.vtkRenderWindow()
-    renderWin.AddRenderer(renderer)
-    renderInteractor = vtk.vtkRenderWindowInteractor()
-    renderInteractor.SetRenderWindow(renderWin)
-
-    # We add the volume to the renderer ...
-    renderer.AddVolume(volume)
-    renderer.SetBackground(colors.GetColor3d("MistyRose"))
-
-    # ... and set window size.
-    renderWin.SetSize(400, 400)
-
-    # A simple function to be called when the user decides to quit the application.
-    def exitCheck(obj, event):
-        if obj.GetEventPending() != 0:
-            obj.SetAbortRender(1)
-
-    # Tell the application to use the function as an exit check.
-    renderWin.AddObserver("AbortCheckEvent", exitCheck)
-
-    renderInteractor.Initialize()
-    # Because nothing will be rendered without any input, we order the first render manually
-    #  before control is handed over to the main-loop.
-    renderWin.Render()
-    renderInteractor.Start()
-
 def render_mesh(objects, dim):
     actors = []
 
@@ -115,7 +19,7 @@ def render_mesh(objects, dim):
     for actor in actors:
         renderer.AddActor(actor)
 
-    renderer.SetBackground(0.0, 0.0, 0.0)
+    renderer.SetBackground(1.0, 1.0, 1.0)
 
     window.Render()
     interactor.Start()
@@ -138,18 +42,57 @@ def create_actor(data_matrix, dim, color='Yellow', opacity=1.0):
     dmc.SetInputConnection(dataImporter.GetOutputPort())
     dmc.Update()
 
+    # Smooth mesh
+    smoother = smooth_mesh(dmc, 20)
+
     mapper = vtk.vtkPolyDataMapper()
-    mapper.SetInputConnection(dmc.GetOutputPort())
+    mapper.ScalarVisibilityOff()
+    mapper.SetInputConnection(smoother.GetOutputPort())
 
     rgbColor = get_color_rgb(color)
 
     actor = vtk.vtkActor()
     actor.SetMapper(mapper)
-    actor.GetMapper().ScalarVisibilityOff()
     actor.GetProperty().SetOpacity(opacity)
     actor.GetProperty().SetColor(rgbColor[0], rgbColor[1], rgbColor[2])
 
     return actor
+
+def smooth_mesh(dmc, iterations=20):
+    inputPoly = vtk.vtkPolyData()
+    inputPoly.ShallowCopy(dmc.GetOutput())
+
+    cleanPolyData = vtk.vtkCleanPolyData()
+    cleanPolyData.SetInputData(inputPoly)
+    cleanPolyData.Update()
+
+    smooth_butterfly = vtk.vtkButterflySubdivisionFilter()
+    smooth_butterfly.SetNumberOfSubdivisions(0)
+    smooth_butterfly.SetInputConnection(cleanPolyData.GetOutputPort())
+    smooth_butterfly.Update()
+
+    upsampledInputPoly = vtk.vtkPolyData()
+    upsampledInputPoly.DeepCopy(smooth_butterfly.GetOutput())
+
+    decimate = vtk.vtkDecimatePro()
+    decimate.SetInputData(upsampledInputPoly)
+    decimate.SetTargetReduction(0.0)
+    decimate.PreserveTopologyOn()
+    decimate.Update()
+
+    smoother = vtk.vtkSmoothPolyDataFilter()
+    smoother.SetInputConnection(decimate.GetOutputPort())
+    smoother.SetNumberOfIterations(20) #
+    smoother.SetRelaxationFactor(0.1)
+    smoother.FeatureEdgeSmoothingOff()
+    smoother.BoundarySmoothingOn()
+    smoother.Update()
+
+    normals = vtk.vtkPolyDataNormals()
+    normals.SetInputConnection(smoother.GetOutputPort())
+    normals.FlipNormalsOn()
+
+    return normals
 
 def get_color_rgb(name):
     namedColors = vtk.vtkNamedColors()
