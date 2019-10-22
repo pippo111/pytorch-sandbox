@@ -11,10 +11,10 @@ from networks import network
 from networks import loss
 from networks import optimizer
 from networks.callbacks.early_stop import EarlyStop
-from utils.image import calc_dist_map, cubify_scan
+from utils.image import calc_dist_map, cubify_scan, labels_to_mask
 from utils.common import calc_weights
 from utils.metrics import calc_confusion_matrix, calc_fn_rate, calc_fp_rate, calc_precision, calc_recall, calc_f1score
-from utils.vtk import render_scan
+from utils.vtk import render_mesh, render_scan
 from utils.logs import to_table
 
 class MyModel():
@@ -202,9 +202,28 @@ class MyModel():
         print('Mask shape:', scan_mask.shape)
 
         combined_scan = scan_mask * 2 + scan_preds
-        test_scan = cubify_scan(combined_scan, 256)
 
-        render_scan(test_scan, 256)
+        false_positive = cubify_scan(labels_to_mask(combined_scan, [1]), 256)
+        false_negative = cubify_scan(labels_to_mask(combined_scan, [2]), 256)
+        true_positive = cubify_scan(labels_to_mask(combined_scan, [3]), 256)
+
+        render_mesh([
+            {
+                'data': false_negative,
+                'color': 'Crimson',
+                'opacity': 0.3
+            },
+            {
+                'data': false_positive,
+                'color': 'Gold',
+                'opacity': 0.3
+            },
+            {
+                'data': true_positive,
+                'color': 'ForestGreen',
+                'opacity': 1.0
+            }
+        ], 256)
 
     def save_results(self):
         csv_file = f'output/models/{self.struct}_results.csv'

@@ -20,6 +20,17 @@ def img_to_array(img: np.ndarray) -> np.ndarray:
 
     return arr
 
+""" Divide background and structure by labels
+    It is possible to invert mask, for example to select every label
+    by selecting background and then invert.
+
+    Returns binarized image as 0|255.
+"""
+def labels_to_mask(data: np.ndarray, labels: list, invert: bool = False) -> np.ndarray:
+    mask = np.isin(data, labels, invert=invert).astype(np.uint8) * 255
+
+    return mask
+
 """ Converts scan image to cuboid by padding with zeros
 """
 def cubify_scan(data: np.ndarray, cube_dim: int) -> np.ndarray:

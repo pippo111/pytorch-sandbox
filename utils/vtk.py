@@ -1,4 +1,5 @@
 import vtk
+from vtk.util import numpy_support
 
 def render_scan(scan, dim):
     colors = vtk.vtkNamedColors()
@@ -96,94 +97,61 @@ def render_scan(scan, dim):
     renderWin.Render()
     renderInteractor.Start()
 
-import vtk
+def render_mesh(objects, dim):
+    actors = []
 
-def render_mesh(scan, dim):
-    colors = vtk.vtkNamedColors()
+    for i, o in enumerate(objects):
+        actors.append(create_actor(o['data'], dim, o['color'], o['opacity']))
 
-    # We begin by creating the data we want to render.
-    # For this tutorial, we create a 3D-image containing three overlaping cubes.
-    # This data can of course easily be replaced by data from a medical CT-scan or anything else three dimensional.
-    # The only limit is that the data must be reduced to unsigned 8 bit or 16 bit integers.
-    data_matrix = scan
+    window = vtk.vtkRenderWindow()
+    window.SetSize(500, 500)
 
-    # For VTK to be able to use the data, it must be stored as a VTK-image.
-    #  This can be done by the vtkImageImport-class which
-    # imports raw data and stores it.
-    dataImporter = vtk.vtkImageImport()
-    # The previously created array is converted to a string of chars and imported.
+    interactor = vtk.vtkRenderWindowInteractor()
+    interactor.SetRenderWindow(window)
+
+    renderer = vtk.vtkRenderer()
+    window.AddRenderer(renderer)
+
+    for actor in actors:
+        renderer.AddActor(actor)
+
+    renderer.SetBackground(0.0, 0.0, 0.0)
+
+    window.Render()
+    interactor.Start()
+
+def create_actor(data_matrix, dim, color='Yellow', opacity=1.0):
+    # Convert input data
     data_string = data_matrix.tostring()
+
+    # Import converted input data and set final dimensions
+    dataImporter = vtk.vtkImageImport()
     dataImporter.CopyImportVoidPointer(data_string, len(data_string))
-    # The type of the newly imported data is set to unsigned char (uint8)
     dataImporter.SetDataScalarTypeToUnsignedChar()
-    # Because the data that is imported only contains an intensity value
-    #  (it isnt RGB-coded or someting similar), the importer must be told this is the case.
     dataImporter.SetNumberOfScalarComponents(1)
-    # The following two functions describe how the data is stored and the dimensions of the array it is stored in.
-    #  For this simple case, all axes are of length 75 and begins with the first element.
-    #  For other data, this is probably not the case.
-    # I have to admit however, that I honestly dont know the difference between SetDataExtent()
-    #  and SetWholeExtent() although VTK complains if not both are used.
+
     dataImporter.SetDataExtent(0, dim-1, 0, dim-1, 0, dim-1)
     dataImporter.SetWholeExtent(0, dim-1, 0, dim-1, 0, dim-1)
 
+    # Create mesh
     dmc = vtk.vtkDiscreteMarchingCubes()
     dmc.SetInputConnection(dataImporter.GetOutputPort())
-    dmc.GenerateValues(1, 3, 3)
     dmc.Update()
-
-    # dmc.SetValue(0, 0)
-    # dmc.SetValue(1, 1)
-    # dmc.SetValue(2, 2)
-    # dmc.SetValue(3, 3)
-    # dmc.Update()
-
-    ## Create the color map
-    colorLookupTable= vtk.vtkLookupTable()
-    # colorLookupTable.SetTableRange(minz, maxz) #this does nothing, use mapper.SetScalarRange(minz, maxz)
-
-    colorLookupTable.SetTableRange(0,3)
-    # colorLookupTable.SetHueRange(2/3.0, 1)
-    #colorLookupTable.SetSaturationRange(0, 0)
-    #colorLookupTable.SetValueRange(1, 0)
-    colorLookupTable.SetNumberOfColors(4) #256 default
-    colorLookupTable.Build()
 
     mapper = vtk.vtkPolyDataMapper()
     mapper.SetInputConnection(dmc.GetOutputPort())
-    mapper.SetLookupTable(colorLookupTable)
+
+    rgbColor = get_color_rgb(color)
 
     actor = vtk.vtkActor()
     actor.SetMapper(mapper)
+    actor.GetMapper().ScalarVisibilityOff()
+    actor.GetProperty().SetOpacity(opacity)
+    actor.GetProperty().SetColor(rgbColor[0], rgbColor[1], rgbColor[2])
 
-    renderer = vtk.vtkRenderer()
-    renderer.AddActor(actor)
-    renderer.SetBackground(1.0, 1.0, 1.0)
+    return actor
 
-    renderWin = vtk.vtkRenderWindow()
-    renderWin.AddRenderer(renderer)
-    renderInteractor = vtk.vtkRenderWindowInteractor()
-    renderInteractor.SetRenderWindow(renderWin)
-
-    # ... and set window size.
-    renderWin.SetSize(600, 600)
-
-    # A simple function to be called when the user decides to quit the application.
-    def exitCheck(obj, event):
-        if obj.GetEventPending() != 0:
-            obj.SetAbortRender(1)
-
-    # Tell the application to use the function as an exit check.
-    renderWin.AddObserver("AbortCheckEvent", exitCheck)
-
-    renderInteractor.Initialize()
-    # Because nothing will be rendered without any input, we order the first render manually
-    #  before control is handed over to the main-loop.
-    renderWin.Render()
-    renderInteractor.Start()
-
-    writer = vtk.vtkSTLWriter()
-    writer.SetInputConnection(dmc.GetOutputPort())
-    writer.SetFileTypeToBinary()
-    writer.SetFileName("wmh.stl")
-    writer.Write()
+def get_color_rgb(name):
+    namedColors = vtk.vtkNamedColors()
+    
+    return namedColors.GetColor3d(name)
