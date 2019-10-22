@@ -14,15 +14,23 @@ def render_mesh(objects, dim):
     interactor.SetRenderWindow(window)
 
     renderer = vtk.vtkRenderer()
+    renderer.SetBackground(1.0, 1.0, 1.0)
     window.AddRenderer(renderer)
 
     for actor in actors:
         renderer.AddActor(actor)
 
-    renderer.SetBackground(1.0, 1.0, 1.0)
+    # A simple function to be called when the user decides to quit the application.
+    def exitCheck(obj, event):
+        if obj.GetEventPending() != 0:
+            obj.SetAbortRender(1)
 
+    window.AddObserver("AbortCheckEvent", exitCheck)
+
+    interactor.Initialize()
     window.Render()
     interactor.Start()
+
 
 def create_actor(data_matrix, dim, color='Yellow', opacity=1.0):
     # Convert input data
