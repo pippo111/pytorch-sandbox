@@ -25,4 +25,4 @@ my_model = MyModel(
 )
 
 my_model.load(model['filename'])
-my_model.visualize(test_loader)
+my_model.visualize(test_loader, saveAs=cfg.setup['struct'])

@@ -1,7 +1,8 @@
+import os
 import vtk
 from vtk.util import numpy_support
 
-def render_mesh(objects, dim):
+def render_mesh(objects, dim, saveAs=None):
     actors = []
 
     for i, o in enumerate(objects):
@@ -25,11 +26,18 @@ def render_mesh(objects, dim):
         if obj.GetEventPending() != 0:
             obj.SetAbortRender(1)
 
-    window.AddObserver("AbortCheckEvent", exitCheck)
+    window.AddObserver('AbortCheckEvent', exitCheck)
 
     interactor.Initialize()
     window.Render()
     interactor.Start()
+
+    # Create mtl and obj file
+    if saveAs:
+        exporter = vtk.vtkOBJExporter()
+        exporter.SetRenderWindow( window )
+        exporter.SetFilePrefix(os.path.join('./output/models', saveAs))
+        exporter.Write()
 
 
 def create_actor(data_matrix, dim, color='Yellow', opacity=1.0):

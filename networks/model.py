@@ -176,7 +176,7 @@ class MyModel():
 
         return self.history
 
-    def visualize(self, test_loader):
+    def visualize(self, test_loader, saveAs=None):
         scan_preds = list()
         scan_mask = list()
 
@@ -223,7 +223,7 @@ class MyModel():
                 'color': 'ForestGreen',
                 'opacity': 1.0
             }
-        ], 256)
+        ], 256, saveAs=saveAs)
 
     def save_results(self):
         csv_file = f'output/models/{self.struct}_results.csv'
