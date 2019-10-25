@@ -16,12 +16,23 @@ model = {
 dataset_dir = '/home/filip/Projekty/ML/datasets/processed/mindboggle_84_Nx192x256_lateral_ventricle'
 test_loader = get_loader(dataset_dir, 'test', shuffle = False)
 
+# Get brainer
+my_brainer = MyModel(
+    arch = 'Unet',
+    struct = 'brain',
+    n_filters = 16,
+    batch_size = 16
+)
+
+my_brainer.load('brain_Unet_RAdam_bce_bs-16_f-16.pt')
+
 # For each model setup perform training
 my_model = MyModel(
     arch = model['arch'],
     struct = cfg.setup['struct'],
     n_filters = model['filters'],
-    batch_size = cfg.setup['batch_size']
+    batch_size = cfg.setup['batch_size'],
+    brainer = my_brainer
 )
 
 my_model.load(model['filename'])

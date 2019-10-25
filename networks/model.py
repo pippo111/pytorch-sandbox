@@ -24,6 +24,7 @@ class MyModel():
         struct,
         n_filters,
         batch_size=16,
+        brainer=None,
         n_channels=1,
         n_classes=1
     ):
@@ -31,6 +32,8 @@ class MyModel():
         self.arch = arch
         self.n_filters = n_filters
         self.batch_size = batch_size
+
+        self.brainer = brainer
 
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model = network.get(arch)(n_channels, n_filters, n_classes).to(self.device)
@@ -176,7 +179,21 @@ class MyModel():
 
         return self.history
 
+    def predict(self, scan):
+        scan = scan.to(self.device)
+
+        with torch.no_grad():
+            self.model.eval()
+
+            preds = self.model(scan)
+            preds = preds.cpu().numpy()
+            preds = (preds > 0.5).astype(np.uint8)
+
+
+        return preds
+
     def visualize(self, test_loader, saveAs=None):
+        scan_brain = list()
         scan_preds = list()
         scan_mask = list()
 
@@ -184,30 +201,39 @@ class MyModel():
             X_batch = X_batch.to(self.device)
             y_batch = y_batch.to(self.device)
 
-            with torch.no_grad():
-                self.model.eval()
+            preds = self.predict(X_batch)
+            scan_preds.append(preds.squeeze())
+            
+            mask = y_batch.cpu().numpy().squeeze().astype(np.uint8)
+            scan_mask.append(mask)
 
-                preds = self.model(X_batch)
-                preds = preds.cpu().numpy()
-                preds = (preds > 0.5).astype(np.uint8)
-                scan_preds.append(preds.squeeze())
-                
-                mask = y_batch.cpu().numpy().squeeze().astype(np.uint8)
-                scan_mask.append(mask)
+            brain = self.brainer.predict(X_batch)
+            scan_brain.append(brain.squeeze())
                 
         scan_preds = np.concatenate([img for img in scan_preds])
         scan_mask = np.concatenate([img for img in scan_mask])
+        scan_brain = np.concatenate([img for img in scan_brain])
 
         print('Preds shape:', scan_preds.shape)
         print('Mask shape:', scan_mask.shape)
+        print('Brain shape:', scan_brain.shape)
 
         combined_scan = scan_mask * 2 + scan_preds
 
         false_positive = cubify_scan(labels_to_mask(combined_scan, [1]), 256)
         false_negative = cubify_scan(labels_to_mask(combined_scan, [2]), 256)
         true_positive = cubify_scan(labels_to_mask(combined_scan, [3]), 256)
+        brain = cubify_scan(scan_brain, 256)
 
+        if self.brainer:
+            self.brainer.predict
+ 
         render_mesh([
+            {
+                'data': brain,
+                'color': 'White',
+                'opacity': 0.3
+            },
             {
                 'data': false_negative,
                 'color': 'Crimson',

@@ -6,7 +6,7 @@ def render_mesh(objects, dim, saveAs=None):
     actors = []
 
     for i, o in enumerate(objects):
-        actors.append(create_actor(o['data'], dim, o['color'], o['opacity']))
+        actors.append(create_actor(o['data'], dim, o['color'], o['opacity'], saveAs=saveAs))
 
     window = vtk.vtkRenderWindow()
     window.SetSize(500, 500)
@@ -40,7 +40,7 @@ def render_mesh(objects, dim, saveAs=None):
         exporter.Write()
 
 
-def create_actor(data_matrix, dim, color='Yellow', opacity=1.0):
+def create_actor(data_matrix, dim, color='Yellow', opacity=1.0, saveAs=None):
     # Convert input data
     data_string = data_matrix.tostring()
 
@@ -59,7 +59,14 @@ def create_actor(data_matrix, dim, color='Yellow', opacity=1.0):
     dmc.Update()
 
     # Smooth mesh
-    smoother = smooth_mesh(dmc, 20)
+    smoother = smooth_mesh(dmc, 35)
+
+    if saveAs:
+        writer = vtk.vtkSTLWriter()
+        writer.SetInputConnection(smoother.GetOutputPort())
+        writer.SetFileTypeToBinary()
+        writer.SetFileName(os.path.join('./output/models', f'{saveAs}_{color}.stl'))
+        writer.Write()
 
     mapper = vtk.vtkPolyDataMapper()
     mapper.ScalarVisibilityOff()
@@ -98,7 +105,7 @@ def smooth_mesh(dmc, iterations=20):
 
     smoother = vtk.vtkSmoothPolyDataFilter()
     smoother.SetInputConnection(decimate.GetOutputPort())
-    smoother.SetNumberOfIterations(20) #
+    smoother.SetNumberOfIterations(iterations) #
     smoother.SetRelaxationFactor(0.1)
     smoother.FeatureEdgeSmoothingOff()
     smoother.BoundarySmoothingOn()
