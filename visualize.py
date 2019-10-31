@@ -9,11 +9,11 @@ from utils.dataset import get_loader
 # Model setup
 model = {
     'arch': 'Unet', 'filters': 16,
-    'filename': 'lateral_ventricle_Unet_Adam_bce_bs-16_f-16.pt'
+    'filename': 'cerebellum_wm_Unet_RAdam_boundary_dice_bs-16_f-16.pt'
 }
 
 # Create train / validation loaders
-dataset_dir = '/home/filip/Projekty/ML/datasets/processed/mindboggle_84_Nx192x256_lateral_ventricle'
+dataset_dir = '/home/filip/Projekty/ML/datasets/processed/mindboggle_84_Nx192x256_cerebellum_wm'
 test_loader = get_loader(dataset_dir, 'test', shuffle = False)
 
 # Get brainer

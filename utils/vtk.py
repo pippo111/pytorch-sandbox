@@ -6,7 +6,7 @@ def render_mesh(objects, dim, saveAs=None):
     actors = []
 
     for i, o in enumerate(objects):
-        actors.append(create_actor(o['data'], dim, o['color'], o['opacity'], saveAs=saveAs))
+        actors.append(create_actor(o['data'], dim, o['color'], o['opacity'], o['name'], saveAs=saveAs))
 
     window = vtk.vtkRenderWindow()
     window.SetSize(500, 500)
@@ -40,7 +40,7 @@ def render_mesh(objects, dim, saveAs=None):
         exporter.Write()
 
 
-def create_actor(data_matrix, dim, color='Yellow', opacity=1.0, saveAs=None):
+def create_actor(data_matrix, dim, color='Yellow', opacity=1.0, name='', saveAs=None):
     # Convert input data
     data_string = data_matrix.tostring()
 
@@ -65,7 +65,7 @@ def create_actor(data_matrix, dim, color='Yellow', opacity=1.0, saveAs=None):
         writer = vtk.vtkSTLWriter()
         writer.SetInputConnection(smoother.GetOutputPort())
         writer.SetFileTypeToBinary()
-        writer.SetFileName(os.path.join('./output/models', f'{saveAs}_{color}.stl'))
+        writer.SetFileName(os.path.join('./output/models', f'{saveAs}_{name}.stl'))
         writer.Write()
 
     mapper = vtk.vtkPolyDataMapper()
